@@ -1,238 +1,135 @@
-/**
- * @file battery_holder.scad
- * @brief A script to generate a battery holder for arrays of cylindrical battery cells
- * @author Cameron K. Brooks
- * @copyright 2025
- *
- * This is inspired by "Parametric 18650 battery grid" written by delboy711: https://www.thingiverse.com/thing:3026658
- * This script is a more modular and overall vastly improved version of the 18650 battery holder script
- *
- */
+// battery_holder.scad: snap-together holders for cylindrical cells, a grid
+// to arrange them, and a box with a cover to hold a grid.
+//
+// A holder is a square block with a bore for one end of a cell. A lip at the
+// bottom keeps the cell in, and two crossed slots through the lip carry the
+// nickel strip that joins cells. Each holder has a male dovetail on its +x
+// and +y sides and a socket on its -x and -y sides, so holders slide together
+// into any grid. A pack is two grids, one on each end of the cells.
+//
+// The holder's bore floor is at z = 0; the lip is below it.
 
-// uses the shape_trapezium.scad module from dotSCAD
-use <dotSCAD/src/shape_trapezium.scad> // from dotSCAD: https://github.com/JustinSDK/dotSCAD
+EPS = 0.01;
 
-// ---------------------------------
-// Global Parameters
-// ---------------------------------
-$fn = $preview ? 32 : 128;  // number of fragments for circles, affects render time
-zFite = $preview ? 0.1 : 0; // z-fighting avoidance for preview
+// ---------------- Sizes ----------------
+// Width of a holder's block, without its dovetails.
+function holder_block(diameter, wall_thickness) = diameter + wall_thickness;
+// Distance between neighbouring holders' centres in a grid.
+function holder_pitch(diameter, wall_thickness, connector_depth, connector_allowance = 0.2) =
+  holder_block(diameter, wall_thickness) + connector_depth + connector_allowance / 2;
+// Width of a row of n holders, dovetails and sockets included.
+function grid_span(n, diameter, wall_thickness, connector_depth, connector_allowance = 0.2) =
+  (n - 1) * holder_pitch(diameter, wall_thickness, connector_depth, connector_allowance)
+  + holder_block(diameter, wall_thickness) + 2 * connector_depth;
 
-/**
- * @brief Generate a single cell for a battery holder
- * @param diameter Diameter of the battery cell
- * @param height Height of the battery cell
- * @param wall_thickness Thickness of the battery holder
- * @param retainer_thickness Thickness of the retainer
- * @param retainer_radius Radius of the retainer
- * @param connector_depth Depth of the connector
- * @param wire_cut Width of the wire cutout
- * @param cell_allowance Allowance for the cell
- * @param connector_allowance Allowance for the connector
- * @param retainer Whether to include a retainer
- * @param tie_slot Whether to include a slot for a cable tie
- */
-module battery_holder(diameter, height, wall_thickness, retainer_thickness, retainer_radius = undef,
+// A trapezium with its `bottom` edge at y = -h / 2 and its `top` edge at
+// y = h / 2, centred on x.
+function trapezium(bottom, top, h) = [[bottom / 2, -h / 2], [top / 2, h / 2], [-top / 2, h / 2], [-bottom / 2, -h / 2]];
+
+// ---------------- One holder ----------------
+// diameter            cell diameter
+// height              depth of the bore
+// wall_thickness      block width is diameter + wall_thickness
+// retainer_thickness  thickness of the lip under the cell (wall_thickness / 2)
+// retainer_radius     how far the lip reaches in under the cell (diameter / 10)
+// connector_depth     depth of the dovetails (wall_thickness)
+// wire_cut            width of the strip slots ((diameter - 2 retainer_radius) / 2)
+// arc_cutout          arch the slots' roofs, so a holder printed lip-up needs no support
+// cell_allowance      bore diameter over the cell
+// connector_allowance socket width over the dovetail
+// retainer            false leaves the lip out, for an open bore
+// tie_slot            false fills the -y socket's outer corner, closing the cable tie slot
+module battery_holder(diameter, height, wall_thickness, retainer_thickness = undef, retainer_radius = undef,
                       connector_depth = undef, wire_cut = undef, arc_cutout = true, cell_allowance = 0.2,
-                      connector_allowance = 0.2, retainer = true, tie_slot = true)
-{
+                      connector_allowance = 0.2, retainer = true, tie_slot = true) {
+  lip = is_undef(retainer_thickness) ? wall_thickness / 2 : retainer_thickness;
+  reach = is_undef(retainer_radius) ? diameter / 10 : retainer_radius;
+  slot = is_undef(wire_cut) ? (diameter - 2 * reach) / 2 : wire_cut;
+  depth = is_undef(connector_depth) ? wall_thickness : connector_depth;
+  block = holder_block(diameter, wall_thickness);
+  tail = diameter - wall_thickness; // widest part of the dovetail
+  total = height + lip;
+  side = (block + depth) / 2; // from the centre to the middle of a dovetail
 
-    retainer_radius = is_undef(retainer_radius) ? diameter * 0.1 : retainer_radius; // retainer_radius radius
-    retainer_thickness =
-        is_undef(retainer_thickness) ? wall_thickness / 2 : retainer_thickness; // retainer_thickness holder_height
-    wire_cut = is_undef(wire_cut) ? (diameter - retainer_radius * 2) / 2 : wire_cut;
-    connector_depth = is_undef(connector_depth) ? wall_thickness : connector_depth;
-
-    // base_width = diameter + wall_thickness * 2;
-    base_width = diameter + wall_thickness;
-    trap_width = base_width * 2 / 3; // Width of the trapezoid
-    trapezium_major = diameter - wall_thickness;
-    conn_shift = (base_width + connector_depth) / 2;
-    total_height = height + retainer_thickness;
-
-    translate([ 0, 0, -retainer_thickness ]) difference()
-    {
-        union()
-        {
-
-            // main body
-            translate([ 0, 0, total_height / 2 ])
-                cube([ base_width, base_width, height + retainer_thickness ], center = true);
-
-            // Cut out the connectors between cells
-            translate([ 0, conn_shift, 0 ])
-                dovetail_conn(base = base_width, width = trapezium_major, depth = connector_depth,
-                              height = total_height, type = "male");
-
-            rotate([ 0, 0, -90 ]) translate([ 0, conn_shift, 0 ])
-                dovetail_conn(base = base_width, width = trapezium_major, depth = connector_depth,
-                              height = total_height, type = "male");
-
-            rotate([ 0, 0, 90 ]) translate([ 0, conn_shift, 0 ])
-                dovetail_conn(base = base_width, width = trapezium_major, depth = connector_depth,
-                              height = total_height, allowance = connector_allowance, type = "female");
-
-            rotate([ 0, 0, 180 ]) translate([ 0, conn_shift, 0 ]) dovetail_conn(
-                base = base_width, width = trapezium_major, depth = connector_depth, height = total_height,
-                allowance = connector_allowance, type = "female", tie_slot = tie_slot);
-        }
-
-        // Main body cavity for the battery cell to fit into
-        translate([ 0, 0, retainer_thickness ])
-            cylinder(r = diameter / 2 + cell_allowance / 2, h = height + zFite, $fn = 64);
-        // Main body access hole to be able to connect the battery cell
-        translate([ 0, 0, -zFite / 2 ])
-            cylinder(r = diameter / 2 - retainer_radius, h = height + retainer_thickness + zFite, $fn = 64);
-
-        // Wire track cutouts
-        for (i = [0:1])
-            rotate([ 0, 0, 90 * i ]) translate([ 0, 0, retainer_thickness / 2 ]) union()
-            {
-                translate([ 0, 0, -retainer_thickness / 2 ])
-                    cube([ wire_cut, base_width * 2, retainer_thickness * 2 ], center = true);
-
-                if (arc_cutout)
-                {
-                    translate([ 0, 0, retainer_thickness / 2 ]) rotate([ 90, 0, 0 ]) scale([ 1, 1 / 3, 1 ])
-
-                        cylinder(r = wire_cut / 2, h = base_width * 2, center = true);
-                }
-            }
+  translate([0, 0, -lip]) difference() {
+    union() {
+      translate([-block / 2, -block / 2, 0]) cube([block, block, total]);
+      for (a = [0, -90]) rotate(a) translate([0, side, 0]) dovetail(tail, depth, total);
+      rotate(90) translate([0, side, 0]) socket(block, tail, depth, total, connector_allowance, true);
+      rotate(180) translate([0, side, 0]) socket(block, tail, depth, total, connector_allowance, tie_slot);
     }
+    // The bore, and the opening through the lip
+    translate([0, 0, lip]) cylinder(d = diameter + cell_allowance, h = height + EPS, $fn = 64);
+    translate([0, 0, -EPS]) cylinder(r = retainer ? diameter / 2 - reach : diameter / 2 + cell_allowance / 2,
+                                     h = total + 2 * EPS, $fn = 64);
+    // The strip slots, through the lip and as deep again into the block
+    for (a = [0, 90]) rotate(a) {
+      translate([-slot / 2, -block, -lip]) cube([slot, 2 * block, 2 * lip]);
+      if (arc_cutout)
+        translate([0, 0, lip]) rotate([90, 0, 0]) scale([1, 1 / 3, 1]) cylinder(d = slot, h = 2 * block, center = true, $fn = 128);
+    }
+  }
 }
 
-/**
- * @brief Generate a male / female dovetail connector
- * @param base Base width of the connector
- * @param width Width of the connector
- * @param depth Depth of the connector
- * @param height Height of the connector
- * @param allowance Allowance for the connector
- * @param type
- * @param tie_slot Whether to keep a slot for a cable tie
- */
-
-module dovetail_conn(base, width, depth, height, allowance = 0, type = "male", tie_slot = true)
-{
-    cover = tie_slot ? 0 : depth;
-    if (type == "female")
-    {
-
-        difference()
-        {
-            translate([ cover / 2, 0, height / 2 ]) cube([ base + cover, depth, height ], center = true);
-            translate([ 0, 0, -zFite / 2 ]) linear_extrude(height + zFite) polygon(
-                shape_trapezium([ width + allowance, width - depth + allowance ], h = depth + zFite, corner_r = 0));
-        }
-    }
-    else
-    {
-        linear_extrude(height)
-            polygon(shape_trapezium([ width - depth - allowance, width - allowance ], h = depth + zFite, corner_r = 0));
-    }
+// A male dovetail standing out from y = -depth / 2, narrow at the holder.
+module dovetail(tail, depth, h) {
+  linear_extrude(h) polygon(trapezium(tail - depth, tail, depth));
 }
 
-/**
- * @brief Generate a battery holder configuration by applying the proper transformations to the children
- * @param cells_x Number of cells in the x direction
- * @param cells_y Number of cells in the y direction
- * @param width Width of the cell
- * @param allowance Allowance of connectors
- */
-module batteryHolderConfig(cells_x, cells_y, width, connector_allowance = 0.2)
-{
-    cx_shift = (width / 2 + connector_allowance / 2) * (cells_x - 1);
-    cy_shift = (width / 2 + connector_allowance / 2) * (cells_y - 1);
-    for (i = [0:cells_x - 1])
-        for (j = [0:cells_y - 1])
-            // Generate the grid of cells and connectors
-            translate([
-                (width + connector_allowance / 2) * i - cx_shift, (width + connector_allowance / 2) * j - cy_shift, 0
-            ]) children();
+// The socket that takes a neighbour's dovetail: a strip along the block's
+// side with the dovetail's shape, plus allowance, cut out of it. `open`
+// leaves the strip's +x end as two hooks with a gap between them for a cable
+// tie; otherwise that end is filled out to the neighbouring corner.
+module socket(block, tail, depth, h, allowance, open) {
+  fill = open ? 0 : depth;
+  difference() {
+    translate([-block / 2, -depth / 2, 0]) cube([block + fill, depth, h]);
+    translate([0, 0, -EPS]) linear_extrude(h + 2 * EPS) polygon(trapezium(tail + allowance, tail - depth + allowance, depth));
+  }
 }
 
-/**
- * @brief Generate a battery holder box by removing the holder part from the floor to create an imprint
- * @param cells_x Number of cells in the x direction
- * @param cells_y Number of cells in the y direction
- * @param retainer_thickness Thickness of the retainer
- * @param connector_depth Depth of the connector
- * @param connector_allowance Allowance for the connector
- * @param box_wall_thickness Thickness of the box walls
- * @param box_floor_thickness Thickness of the box floor
- */
+// ---------------- Grid ----------------
+// Places a copy of the children at each of cells_x by cells_y positions,
+// centred on the origin. `width` is the holder block plus connector depth.
+module batteryHolderConfig(cells_x, cells_y, width, connector_allowance = 0.2) {
+  pitch = width + connector_allowance / 2;
+  for (i = [0:cells_x - 1], j = [0:cells_y - 1])
+    translate([(i - (cells_x - 1) / 2) * pitch, (j - (cells_y - 1) / 2) * pitch, 0]) children();
+}
+
+// ---------------- Box and cover ----------------
+// A box that takes a grid of holders and cells standing on its floor, with a
+// mounting flange each side and one screw hole per row of cells. The cover is the same
+// box, wide enough to slide over it; its flange is at its open end, so it
+// rests on the box's flange when the cover's ceiling meets the box's rim.
+// The box's cavity is the grid's span plus box_allowance.
 module battery_holder_box(battery_height, battery_diameter, cells_x, cells_y, wall_thickness, retainer_thickness,
                           connector_depth, connector_allowance, flange_width, mounting_hole_diameter,
-                          box_wall_thickness, box_floor_thickness, box_allowance, cover = false)
-{
+                          box_wall_thickness, box_floor_thickness, box_allowance, cover = false) {
+  h = battery_height + 2 * retainer_thickness + box_floor_thickness + box_allowance;
+  span = [for (n = [cells_x, cells_y]) grid_span(n, battery_diameter, wall_thickness, connector_depth, connector_allowance)];
+  grow = cover ? 2 * box_wall_thickness + box_allowance : 0;
+  cavity = [span[0] + box_allowance + grow, span[1] + box_allowance + grow];
+  outer = [cavity[0] + 2 * box_wall_thickness, cavity[1] + 2 * box_wall_thickness];
+  t = box_floor_thickness;
+  flange_y = outer[1] - grow; // as long as the box's side, cover or not
+  flange_z = cover ? h - t : 0;
+  hole_pitch = (cavity[1] - grow) / cells_y; // holes spread evenly along the box
 
-    box_height = battery_height + retainer_thickness * 2 + box_floor_thickness + box_allowance; // height of the box
-
-    holder_base_width =
-        battery_diameter + wall_thickness + connector_depth; // width of the holder not including connectors
-    holder_bounding_width =
-        holder_base_width + connector_depth / 2 + connector_allowance / 2; // width of the holder including connectors
-
-    flange_thickness = box_floor_thickness; // thickness of the flange
-
-    cover_width_diff = cover ? box_wall_thickness * 2 + box_allowance : 0; // width difference for the cover
-
-    // Main body of the box
-    translate([ 0, 0, box_height / 2 ]) color("Grey") difference()
-    {
-        union()
-        {
-
-            // Base shape of the box
-            cube(
-                [
-                    holder_bounding_width * cells_x + box_wall_thickness * 2 + cover_width_diff,
-                    holder_bounding_width * cells_y + box_wall_thickness * 2 + cover_width_diff,
-                    box_height
-                ],
-                center = true);
-
-            // Flanges for mounting the box coming off the sides at z=0
-            for (i = [0:1])
-            {
-                flange_offset = cover ? box_height - flange_thickness : 0;
-                mirror([ i, 0, 0 ]) translate([
-                    holder_bounding_width * cells_x / 2 + box_wall_thickness + flange_width / 2, 0,
-                    -box_height / 2 + box_floor_thickness / 2 +
-                    flange_offset
-                ])
-
-                    difference()
-                {
-                    // flange base shape
-                    cube([ flange_width, holder_bounding_width * cells_y + box_wall_thickness * 2, flange_thickness ],
-                         center = true);
-
-                    // create one screw hole for each y cell
-                    for (j = [0:cells_y - 1])
-                    {
-                        translate([ 0, holder_bounding_width * j - holder_bounding_width * (cells_y - 1) / 2, 0 ])
-                            cylinder(r = mounting_hole_diameter / 2, h = flange_thickness + zFite, center = true);
-                    }
-
-                    // cut off the sharp edges of the flange
-                    for (i = [0:1])
-                        mirror([ 0, i, 0 ]) translate(
-                            [ flange_width / 2, (holder_bounding_width * cells_y + box_wall_thickness * 2) / 2, 0 ])
-                            rotate([ 0, 0, 45 ])
-                                cube([ flange_width * sqrt(2), flange_width * sqrt(2), flange_thickness + zFite ],
-                                     center = true);
-                }
-            }
+  color("Grey") difference() {
+    union() {
+      translate([-outer[0] / 2, -outer[1] / 2, 0]) cube([outer[0], outer[1], h]);
+      for (m = [0, 1]) mirror([m, 0, 0]) translate([(outer[0] - grow) / 2 + flange_width / 2, 0, flange_z])
+        difference() {
+          translate([-flange_width / 2, -flange_y / 2, 0]) cube([flange_width, flange_y, t]);
+          for (j = [0:cells_y - 1])
+            translate([0, (j - (cells_y - 1) / 2) * hole_pitch, -EPS]) cylinder(d = mounting_hole_diameter, h = t + 2 * EPS, $fn = 32);
+          // Chamfer the flange's outer corners at 45 degrees
+          for (k = [0, 1]) mirror([0, k, 0]) translate([flange_width / 2, flange_y / 2, -EPS])
+            rotate(45) translate([-flange_width / sqrt(2), -flange_width / sqrt(2), 0])
+              cube([flange_width * sqrt(2), flange_width * sqrt(2), t + 2 * EPS]);
         }
-
-        // Cut out the middle cavity of the box
-        translate([ 0, 0, box_floor_thickness ]) cube(
-            [
-                holder_bounding_width * cells_x + box_allowance + cover_width_diff,
-                holder_bounding_width * cells_y + box_allowance + cover_width_diff, box_height +
-                zFite
-            ],
-            center = true);
     }
+    translate([-cavity[0] / 2, -cavity[1] / 2, t]) cube([cavity[0], cavity[1], h]);
+  }
 }
