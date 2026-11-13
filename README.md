@@ -1,4 +1,4 @@
-# BattPackSCAD
+# battpack-scad
 
 Snap-together battery holders for cylindrical cells, designed in OpenSCAD,
 with a box and cover to hold the pack. Each holder takes one end of one cell
@@ -52,8 +52,8 @@ The console prints the holder pitch and box height:
 ### In your own model
 
 ```openscad
-use <BattPackSCAD/cells.scad>
-use <BattPackSCAD/battery_holder.scad>
+use <battpack-scad/cells.scad>
+use <battpack-scad/battery_holder.scad>
 
 battery_holder(diameter = cell_diameter("18650"), height = 6, wall_thickness = 3, retainer_thickness = 2);
 ```
