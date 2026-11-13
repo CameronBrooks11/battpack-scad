@@ -31,7 +31,7 @@ PROBE = os.path.join(ROOT, "tests", "probe.scad")
 CELLS = {"18650": (18.3, 64.8), "AA": (14.5, 50.5), "26650": (26.5, 66.0), "21700": (21.0, 70.0)}
 
 CONFIGS = {
-    "2 x 2 18650 (the prints)": {},
+    "2 x 2 18650 (the defaults)": {},
     "1 x 1 AA": {"cell": '"AA"', "cells_x": 1, "cells_y": 1, "holder_height": 5, "wall_thickness": 2.4},
     "3 x 2 26650, no tie slot": {"cell": '"26650"', "cells_x": 3, "cells_y": 2, "holder_height": 8,
                                  "wall_thickness": 2.4, "connector_depth": 2.4, "tie_slot": "false",

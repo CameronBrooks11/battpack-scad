@@ -2,8 +2,9 @@
 test:
     python3 tests/test_battpack.py
 
-# Export the 2 x 2 18650 holder, box and cover STLs into prints/
+# Export the holder, box and cover STLs into prints/, for the default 2 x 2 18650 pack
 prints:
+    mkdir -p prints
     openscad --export-format binstl -D 'part="holder"' -o prints/18650_holder.stl battpack.scad
     openscad --export-format binstl -D 'part="box"' -o prints/18650_holder_box_2x2gridconfig.stl battpack.scad
     openscad --export-format binstl -D 'part="cover"' -o prints/18650_holder_cover_2x2gridconfig.stl battpack.scad

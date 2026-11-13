@@ -46,8 +46,8 @@ The console prints the holder pitch and box height:
 
 ![A holder from the lip side: the strip slots, and dovetails and sockets](images/holder.png)
 
-`prints/` has the default 2 × 2 18650 holder, box and cover as STLs
-(`just prints` exports them again) and 3MF slicer projects.
+`just prints` exports the holder, box and cover STLs for the default 2 × 2
+18650 pack into `prints/`.
 
 ### In your own model
 
@@ -65,7 +65,7 @@ battery_holder(diameter = cell_diameter("18650"), height = 6, wall_thickness = 3
 ## Checks
 
 `just test` takes about 7 s on OpenSCAD 2026.10.15. At four settings (2 × 2
-18650 as in `prints/`; 1 × 1 AA; 3 × 2 26650 without the tie slot; 4 × 1
+18650, the defaults; 1 × 1 AA; 3 × 2 26650 without the tie slot; 4 × 1
 21700 with an open bore) it checks that:
 
 - a holder is one piece of the expected size, and a grid is separate holders
