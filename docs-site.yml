@@ -1,1 +1,3 @@
+title: battpack-scad
+description: Snap-together holders for cylindrical battery cells in OpenSCAD, with a box and cover for the pack
 models: battpack.scad
