@@ -16,6 +16,11 @@ For each configuration it checks:
     lower, clears the pack, and its flanges meet the box's with their holes
     lined up;
   - the box and cover are one piece each, of the expected size.
+
+Each examples/*.scad renders.
+
+No render may print a WARNING or ERROR line, bar the refused cell: OpenSCAD
+exits 0 on a failed assert when something is left to export.
 """
 
 import os
@@ -45,11 +50,17 @@ DEFAULTS = {"cells_x": 2, "cells_y": 2, "holder_height": 6, "wall_thickness": 2,
             "box_wall_thickness": 2, "box_floor_thickness": 3, "retainer": "true"}
 
 
-def run(openscad, scad, out, defines):
+NOISY = []  # WARNING or ERROR lines from renders that should print none
+
+
+def run(openscad, scad, out, defines, refusal=False):
     cmd = [openscad, "--hardwarnings", "--export-format", "binstl", "-o", out]
     for name, value in defines.items():
         cmd += ["-D", f"{name}={value}"]
-    return subprocess.run(cmd + [scad], capture_output=True, text=True)
+    result = subprocess.run(cmd + [scad], capture_output=True, text=True)
+    if not refusal:
+        NOISY.extend(l for l in result.stderr.splitlines() if l.startswith(("WARNING", "ERROR")))
+    return result
 
 
 def mesh(path):
@@ -184,9 +195,13 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         for name, defines in CONFIGS.items():
             check_config(openscad, tmp, name, defines, report)
-        result = run(openscad, PACK, os.path.join(tmp, "x.stl"), {"cell": '"18600"'})
+        result = run(openscad, PACK, os.path.join(tmp, "x.stl"), {"cell": '"18600"'}, refusal=True)
         report("refuses an unknown cell", result.returncode != 0 and "unknown cell 18600" in result.stderr,
                "refused" if "unknown cell" in result.stderr else result.stderr.strip().splitlines()[-1:])
+        for f in sorted(f for f in os.listdir(os.path.join(ROOT, "examples")) if f.endswith(".scad")):
+            result = run(openscad, os.path.join(ROOT, "examples", f), os.path.join(tmp, "x.stl"), {})
+            report(f"examples/{f} renders", result.returncode == 0, f"exit {result.returncode}")
+        report("no other render prints a WARNING or ERROR", not NOISY, NOISY[0] if NOISY else "none")
 
     print("all checks passed" if not failures else f"{len(failures)} failed")
     sys.exit(1 if failures else 0)
