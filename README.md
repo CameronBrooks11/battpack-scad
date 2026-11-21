@@ -6,9 +6,9 @@ and has dovetails on two sides and sockets on the other two, so holders slide
 together into any grid. A pack is two grids, one on each end of the cells,
 joined by nickel strip through slots in the holders' lips.
 
-![A 2 x 2 18650 pack in its box, with the cover beside it](images/assembly.png)
+![A 2 x 2 18650 pack in its box, with the cover beside it](docs/img/assembly.png)
 
-![A 3 x 2 grid of holders](images/grid.png)
+![A 3 x 2 grid of holders](docs/img/grid.png)
 
 ## Use it
 
@@ -44,7 +44,7 @@ The console prints the holder pitch and box height:
 2 x 2 18650 cells; holder pitch 23.4 mm; box 70.9 mm tall
 ```
 
-![A holder from the lip side: the strip slots, and dovetails and sockets](images/holder.png)
+![A holder from the lip side: the strip slots, and dovetails and sockets](docs/img/holder.png)
 
 `just prints` exports the holder, box and cover STLs for the default 2 × 2
 18650 pack into `prints/`.
